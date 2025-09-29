@@ -17,7 +17,27 @@ Production-ready Model Context Protocol (MCP) SDK for TypeScript with automatic 
 - 🎯 **MCP Compliant**: Full support for MCP 2025-03-26 specification
 - 🔌 **Universal Compatibility**: Works seamlessly in both Bun and Node.js environments
 
-## 🚀 Installation
+## 🚀 Quick Start
+
+### Create a New MCP Server (Recommended)
+
+The fastest way to get started is with our CLI tool:
+
+```bash
+# Create a new MCP server project
+bunx @the-ihor/adi-create-mcp-server
+# or
+npx @the-ihor/adi-create-mcp-server
+```
+
+This interactive CLI will:
+- ✨ Set up a complete MCP server project
+- 🎯 Include example tools (echo, random number generator)
+- 📦 Support multiple package managers (Bun, npm, yarn, pnpm)
+- 🔧 Generate proper TypeScript configuration
+- 📚 Include comprehensive documentation
+
+### Manual Installation
 
 ```bash
 # Using Bun (recommended for performance)
@@ -30,7 +50,7 @@ npm install @the-ihor/mcp-sdk-typescript
 yarn add @the-ihor/mcp-sdk-typescript
 ```
 
-## 📖 Quick Start
+## 📖 Manual Implementation
 
 ```typescript
 import { MCPApp, TextResponse, ProgressResponse, LogResponse, z } from "@the-ihor/mcp-sdk-typescript";
@@ -248,6 +268,8 @@ MIT License - see [LICENSE](LICENSE) file for details.
 ## 🔗 Links
 
 - **GitHub**: [mcp-sdk-typescript](https://github.com/the-ihor/mcp-sdk-typescript)
+- **CLI Tool**: [adi-create-mcp-server](https://github.com/the-ihor/adi-create-mcp-server) - Create MCP servers instantly
+- **NPM Package**: [@the-ihor/adi-create-mcp-server](https://www.npmjs.com/package/@the-ihor/adi-create-mcp-server)
 - **Issues**: [Report bugs](https://github.com/the-ihor/mcp-sdk-typescript/issues)
 - **MCP Specification**: [Model Context Protocol](https://modelcontextprotocol.io)
 - **Bun Runtime**: [Bun.sh](https://bun.sh)
