@@ -6,74 +6,244 @@ import {
   JSONRPCNotification,
 } from "@modelcontextprotocol/sdk/types.js";
 
+/**
+ * Configuration options for StreamableHttpTransport
+ * 
+ * Defines the network binding and endpoint configuration for the HTTP transport layer.
+ */
 interface StreamableHttpTransportOptions {
+  /** Hostname or IP address to bind the server to */
   host: string;
+  /** Port number for the HTTP server */
   port: number;
+  /** URL path for MCP endpoint requests */
   path: string;
 }
 
+/**
+ * Represents an active client session for event streaming
+ * 
+ * Sessions maintain persistent connections for real-time communication
+ * with MCP clients through Server-Sent Events (SSE).
+ */
 interface Session {
+  /** Unique session identifier for tracking connections */
   id: string;
+  /** HTTP response object for the session (optional) */
   response?: Response;
+  /** Stream controller for sending data to the client */
   controller?: ReadableStreamDefaultController<string>;
 }
 
+/**
+ * Tracks pending requests awaiting responses
+ * 
+ * Maps request IDs to their originating sessions for proper response routing.
+ */
+interface PendingRequest {
+  /** ID of the JSON-RPC request */
+  requestId: string | number;
+  /** Session ID where the request originated */
+  sessionId: string;
+  /** Timestamp when the request was received */
+  timestamp: number;
+}
+
+/**
+ * HTTP transport implementation for MCP with streaming capabilities
+ * 
+ * Provides a Bun-based HTTP server that implements the MCP Transport interface,
+ * supporting both request-response and real-time streaming communication patterns.
+ * Uses Server-Sent Events (SSE) for persistent connections and immediate message delivery.
+ * 
+ * Features:
+ * - RESTful POST endpoint for MCP requests
+ * - GET endpoint for establishing SSE streams
+ * - Session management for multiple concurrent clients
+ * - Origin validation for security
+ * - MCP protocol version negotiation
+ * 
+ * @example
+ * ```typescript
+ * const transport = new StreamableHttpTransport({
+ *   host: 'localhost',
+ *   port: 3000,
+ *   path: '/mcp'
+ * });
+ * 
+ * transport.onMessage((message) => {
+ *   console.log('Received:', message);
+ * });
+ * 
+ * await transport.start();
+ * ```
+ */
 export class StreamableHttpTransport implements Transport {
   private server?: Bun.Server;
   private sessions = new Map<string, Session>();
+  private pendingRequests = new Map<string | number, PendingRequest>();
   private messageHandler?: (message: JSONRPCMessage) => void;
   private closeHandler?: (error?: Error) => void;
+  private errorHandler?: (error: Error) => void;
   private options: StreamableHttpTransportOptions;
 
+  /**
+   * Type guard to check if a message is a JSON-RPC request
+   * 
+   * @param message - The message to check
+   * @returns True if the message is a JSONRPCRequest
+   */
+  private isJSONRPCRequest(message: JSONRPCMessage): message is JSONRPCRequest {
+    return "method" in message && "id" in message && message.id !== null;
+  }
+
+  /**
+   * Type guard to check if a message is a JSON-RPC notification
+   * 
+   * @param message - The message to check
+   * @returns True if the message is a JSONRPCNotification
+   */
+  private isJSONRPCNotification(message: JSONRPCMessage): message is JSONRPCNotification {
+    return "method" in message && (!("id" in message) || message.id === null);
+  }
+
+  /**
+   * Type guard to check if a message is a JSON-RPC response
+   * 
+   * @param message - The message to check
+   * @returns True if the message is a JSONRPCResponse
+   */
+  private isJSONRPCResponse(message: JSONRPCMessage): message is JSONRPCResponse {
+    return "id" in message && message.id !== null && !("method" in message);
+  }
+
+  /**
+   * Creates a new StreamableHttpTransport instance
+   * 
+   * @param options - Transport configuration including host, port, and path
+   */
   constructor(options: StreamableHttpTransportOptions) {
     this.options = options;
   }
 
+  /**
+   * Starts the HTTP server and begins listening for connections
+   * 
+   * Initializes the Bun server with the configured options and sets up
+   * request handling for MCP protocol communication.
+   * 
+   * @returns Promise that resolves when the server is successfully started
+   * @throws {Error} When server fails to bind to the specified host/port
+   */
   async start(): Promise<void> {
-    this.server = Bun.serve({
-      hostname: this.options.host,
-      port: this.options.port,
-      fetch: this.handleRequest.bind(this),
-    });
+    try {
+      this.server = Bun.serve({
+        hostname: this.options.host,
+        port: this.options.port,
+        fetch: this.handleRequest.bind(this),
+      });
+    } catch (error) {
+      const startupError = error instanceof Error ? error : new Error(String(error));
+      this.handleError(startupError, 'Server startup failed');
+      throw startupError;
+    }
   }
 
+  /**
+   * Gracefully closes the HTTP server and all active sessions
+   * 
+   * Stops the server, closes all active SSE connections, and cleans up resources.
+   * All connected clients will be disconnected.
+   * 
+   * @returns Promise that resolves when shutdown is complete
+   */
   async close(): Promise<void> {
-    if (this.server) {
-      this.server.stop();
-      this.server = undefined;
-    }
-    
-    for (const session of this.sessions.values()) {
-      if (session.controller) {
-        session.controller.close();
+    try {
+      if (this.server) {
+        this.server.stop();
+        this.server = undefined;
+      }
+      
+      for (const session of this.sessions.values()) {
+        if (session.controller) {
+          try {
+            session.controller.close();
+          } catch (error) {
+            const closeError = error instanceof Error ? error : new Error(String(error));
+            this.handleError(closeError, 'Failed to close session');
+          }
+        }
+      }
+      this.sessions.clear();
+      
+      // Clear pending requests on shutdown
+      this.pendingRequests.clear();
+
+      if (this.closeHandler) {
+        this.closeHandler();
+      }
+    } catch (error) {
+      const shutdownError = error instanceof Error ? error : new Error(String(error));
+      this.handleError(shutdownError, 'Transport shutdown failed');
+      if (this.closeHandler) {
+        this.closeHandler(shutdownError);
       }
     }
-    this.sessions.clear();
-
-    if (this.closeHandler) {
-      this.closeHandler();
-    }
   }
 
+  /**
+   * Registers a handler for incoming MCP messages
+   * 
+   * @param handler - Function to call when messages are received from clients
+   */
   onMessage(handler: (message: JSONRPCMessage) => void): void {
     this.messageHandler = handler;
   }
 
+  /**
+   * Registers a handler for transport closure events
+   * 
+   * @param handler - Function to call when the transport is closed, optionally with an error
+   */
   onClose(handler: (error?: Error) => void): void {
     this.closeHandler = handler;
   }
 
+  /**
+   * Registers an error handler for transport-level errors
+   * 
+   * Handles errors such as server startup failures, message parsing errors,
+   * session management issues, and other transport-level problems.
+   * 
+   * @param handler - Function to call when transport errors occur
+   */
   onError(handler: (error: Error) => void): void {
-    // HTTP transport errors are handled through the close handler
+    this.errorHandler = handler;
   }
 
+  /**
+   * Sends a message to connected clients with proper type discrimination
+   * 
+   * Routes messages based on their specific JSON-RPC type:
+   * - Responses: Sent back to the originating session
+   * - Requests: Broadcast to all active sessions (for server-initiated requests)
+   * - Notifications: Broadcast to all active sessions
+   * 
+   * @param message - JSON-RPC message to send
+   * @returns Promise that resolves when message is sent
+   */
   async send(message: JSONRPCMessage): Promise<void> {
-    // For responses, send them back via the appropriate session
-    if ("id" in message && message.id !== null) {
-      const response = message as JSONRPCResponse;
-      await this.sendResponse(response);
+    if (this.isJSONRPCResponse(message)) {
+      // Handle responses - send back via the appropriate session
+      await this.sendResponse(message);
+    } else if (this.isJSONRPCRequest(message)) {
+      // Handle server-initiated requests - broadcast to all sessions
+      await this.broadcastMessage(message);
+    } else if (this.isJSONRPCNotification(message)) {
+      // Handle notifications - broadcast to all sessions
+      await this.broadcastMessage(message);
     } else {
-      // For notifications and requests, send to all active sessions
+      // Fallback for any unrecognized message types
       await this.broadcastMessage(message);
     }
   }
@@ -106,30 +276,61 @@ export class StreamableHttpTransport implements Transport {
     return new Response("Method Not Allowed", { status: 405 });
   }
 
+  /**
+   * Handles incoming POST requests with JSON-RPC messages
+   * 
+   * @param request - The HTTP request containing JSON-RPC message
+   * @returns HTTP response based on message type
+   */
   private async handlePostRequest(request: Request): Promise<Response> {
     try {
       const body = await request.text();
       const message: JSONRPCMessage = JSON.parse(body);
+      
+      // Extract session ID from headers for request correlation
+      const sessionId = request.headers.get("X-Session-ID");
 
-      // Handle the message
+      // Handle the message through the registered handler
       if (this.messageHandler) {
         this.messageHandler(message);
       }
 
-      // For notifications, return 202 Accepted
-      if (!("id" in message) || message.id === null) {
+      // Return appropriate HTTP status based on message type
+      if (this.isJSONRPCNotification(message)) {
+        // Notifications don't expect a response
         return new Response("", { status: 202 });
+      } else if (this.isJSONRPCRequest(message)) {
+        // Track request for response correlation if we have a session
+        if (sessionId && "id" in message && message.id !== null) {
+          this.pendingRequests.set(message.id, {
+            requestId: message.id,
+            sessionId,
+            timestamp: Date.now(),
+          });
+        }
+        // Requests will get responses through the send method
+        return new Response("", { status: 202 });
+      } else {
+        // Invalid or unrecognized message format
+        return new Response("Invalid JSON-RPC message", { status: 400 });
       }
-
-      // For requests, we'll handle the response through the send method
-      // Return 202 for now, the actual response will be sent later
-      return new Response("", { status: 202 });
     } catch (error) {
+      const parseError = error instanceof Error ? error : new Error(String(error));
+      this.handleError(parseError, 'Failed to parse JSON-RPC message');
       return new Response("Bad Request", { status: 400 });
     }
   }
 
-  private async handleGetRequest(request: Request): Promise<Response> {
+  /**
+   * Handles GET requests for establishing Server-Sent Events streams
+   * 
+   * Creates a persistent connection for real-time message delivery to clients.
+   * Each connection gets a unique session ID for tracking.
+   * 
+   * @param _request - The HTTP GET request (unused but required by interface)
+   * @returns Response with SSE stream
+   */
+  private async handleGetRequest(_request: Request): Promise<Response> {
     const sessionId = this.generateSessionId();
     
     const stream = new ReadableStream<string>({
@@ -157,23 +358,87 @@ export class StreamableHttpTransport implements Transport {
     });
   }
 
+  /**
+   * Sends a JSON-RPC response back to the originating client
+   * 
+   * Routes responses to the correct session using request-response correlation.
+   * If no session is found, the response is broadcast to all active sessions.
+   * 
+   * @param response - The JSON-RPC response to send
+   */
   private async sendResponse(response: JSONRPCResponse): Promise<void> {
-    // In this implementation, we return responses directly to the POST request
-    // In a real implementation, you might want to associate responses with specific sessions
+    try {
+      const responseId = response.id;
+      
+      // Find the pending request to get the target session
+      const pendingRequest = this.pendingRequests.get(responseId);
+      
+      if (pendingRequest) {
+        // Remove the pending request as it's now being fulfilled
+        this.pendingRequests.delete(responseId);
+        
+        // Find the target session
+        const targetSession = this.sessions.get(pendingRequest.sessionId);
+        
+        if (targetSession && targetSession.controller) {
+          // Send response to the specific session
+          const responseStr = `data: ${JSON.stringify(response)}\n\n`;
+          try {
+            targetSession.controller.enqueue(responseStr);
+          } catch (error) {
+            // Session is closed, remove it and fall back to broadcast
+            this.sessions.delete(pendingRequest.sessionId);
+            const sessionError = error instanceof Error ? error : new Error(String(error));
+            this.handleError(sessionError, `Failed to send response to session ${pendingRequest.sessionId}`);
+            await this.broadcastMessage(response);
+          }
+        } else {
+          // Session not found, broadcast to all sessions as fallback
+          this.handleError(new Error(`Session ${pendingRequest.sessionId} not found`), 'Response routing failed');
+          await this.broadcastMessage(response);
+        }
+      } else {
+        // No pending request found, broadcast to all sessions
+        // This could happen for server-initiated responses or late responses
+        await this.broadcastMessage(response);
+      }
+    } catch (error) {
+      const responseError = error instanceof Error ? error : new Error(String(error));
+      this.handleError(responseError, 'Failed to send response');
+      // Fallback: try to broadcast
+      try {
+        await this.broadcastMessage(response);
+      } catch (broadcastError) {
+        const fallbackError = broadcastError instanceof Error ? broadcastError : new Error(String(broadcastError));
+        this.handleError(fallbackError, 'Failed to broadcast response as fallback');
+      }
+    }
   }
 
+  /**
+   * Broadcasts a message to all active sessions
+   * 
+   * @param message - JSON-RPC message to broadcast
+   */
   private async broadcastMessage(message: JSONRPCMessage): Promise<void> {
-    const messageStr = `data: ${JSON.stringify(message)}\n\n`;
-    
-    for (const [sessionId, session] of this.sessions.entries()) {
-      try {
-        if (session.controller) {
-          session.controller.enqueue(messageStr);
+    try {
+      const messageStr = `data: ${JSON.stringify(message)}\n\n`;
+      
+      for (const [sessionId, session] of this.sessions.entries()) {
+        try {
+          if (session.controller) {
+            session.controller.enqueue(messageStr);
+          }
+        } catch (error) {
+          // Session is closed, remove it and log the error
+          this.sessions.delete(sessionId);
+          const sessionError = error instanceof Error ? error : new Error(String(error));
+          this.handleError(sessionError, `Session ${sessionId} closed unexpectedly`);
         }
-      } catch (error) {
-        // Session is closed, remove it
-        this.sessions.delete(sessionId);
       }
+    } catch (error) {
+      const broadcastError = error instanceof Error ? error : new Error(String(error));
+      this.handleError(broadcastError, 'Failed to broadcast message');
     }
   }
 
@@ -196,5 +461,50 @@ export class StreamableHttpTransport implements Transport {
   private isSupportedProtocolVersion(version: string): boolean {
     // Support current version
     return version === "2025-03-26";
+  }
+
+  /**
+   * Internal helper to handle transport errors consistently
+   * 
+   * @param error - The error that occurred
+   * @param context - Additional context about where the error occurred
+   */
+  private handleError(error: Error, context: string): void {
+    if (this.errorHandler) {
+      // Enhance error with context information
+      const enhancedError = new Error(`${context}: ${error.message}`);
+      enhancedError.stack = error.stack;
+      enhancedError.cause = error;
+      this.errorHandler(enhancedError);
+    }
+  }
+
+  /**
+   * Cleans up old pending requests that have exceeded the timeout
+   * 
+   * Should be called periodically to prevent memory leaks from abandoned requests.
+   * 
+   * @param timeoutMs - Maximum age for pending requests in milliseconds (default: 30 seconds)
+   */
+  private cleanupPendingRequests(timeoutMs: number = 30000): void {
+    const now = Date.now();
+    const expiredRequests: (string | number)[] = [];
+    
+    for (const [requestId, pendingRequest] of this.pendingRequests.entries()) {
+      if (now - pendingRequest.timestamp > timeoutMs) {
+        expiredRequests.push(requestId);
+      }
+    }
+    
+    for (const requestId of expiredRequests) {
+      this.pendingRequests.delete(requestId);
+    }
+    
+    if (expiredRequests.length > 0) {
+      this.handleError(
+        new Error(`Cleaned up ${expiredRequests.length} expired pending requests`),
+        'Request timeout cleanup',
+      );
+    }
   }
 }

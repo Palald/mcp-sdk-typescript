@@ -1,30 +1,49 @@
-# Dependencies
-node_modules/
-bun.lockb
+# Whitelist approach - ignore everything by default, then allow specific files/directories
 
-# Build outputs
+# Ignore everything
+*
+
+# Allow directories (need trailing slash)
+!*/
+
+# Allow specific file types and important files
+!*.md
+!*.ts
+!*.js
+!*.json
+!*.yaml
+!*.yml
+!*.txt
+!*.gitignore
+!*.gitattributes
+
+# Allow specific important files
+!LICENSE
+!Dockerfile*
+!.dockerignore
+!.nvmrc
+!.node-version
+
+# Still ignore certain directories and files even if they match above patterns
+node_modules/
 dist/
 build/
-
-# Environment files
-.env
-.env.local
-.env.production
-
-# IDE files
-.vscode/
-.idea/
-*.swp
-*.swo
-
-# OS files
-.DS_Store
-Thumbs.db
-
-# Logs
+lib/
+coverage/
+.env*
 *.log
 logs/
-
-# Temporary files
 tmp/
 temp/
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+.vscode/
+.idea/
+bun.lockb
+
+# Allow package-lock.json and yarn.lock if they exist
+!package-lock.json
+!yarn.lock
+!pnpm-lock.yaml

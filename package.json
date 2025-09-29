@@ -1,5 +1,5 @@
 {
-  "name": "mcp-bun-library",
+  "name": "mcp-sdk-bun",
   "version": "1.0.0",
   "description": "MCP Streamable HTTP transport library using Bun",
   "main": "dist/index.js",
@@ -8,7 +8,10 @@
     "build": "bun build src/index.ts --outdir dist --target bun",
     "dev": "bun run src/index.ts",
     "test": "bun test",
-    "typecheck": "bun --bun tsc --noEmit"
+    "typecheck": "bun --bun tsc --noEmit",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "lint:check": "eslint . --max-warnings 0"
   },
   "keywords": ["mcp", "model-context-protocol", "streamable", "http", "bun", "library"],
   "author": "",
@@ -18,8 +21,14 @@
     "zod": "^4.1.11"
   },
   "devDependencies": {
+    "@eslint/js": "^9.36.0",
     "@types/bun": "latest",
-    "typescript": "^5.0.0"
+    "eslint": "^9.36.0",
+    "globals": "^16.4.0",
+    "jiti": "^2.6.0",
+    "typescript": "^5.0.0",
+    "typescript-eslint": "^8.44.1",
+    "@the-ihor/adi-eslint-config-typescript": "^1.0.0"
   },
   "engines": {
     "bun": ">=1.0.0"
