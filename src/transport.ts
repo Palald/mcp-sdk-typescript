@@ -125,6 +125,8 @@ export class StreamableHttpTransport implements Transport {
   onclose?: () => void;
   onerror?: (error: Error) => void;
   sessionId?: string;
+  
+  private protocolVersion?: string;
 
   /**
    * Type guard to check if a message is a JSON-RPC request
@@ -272,6 +274,14 @@ export class StreamableHttpTransport implements Transport {
   }
 
   /**
+   * Sets the protocol version used for the connection
+   */
+  setProtocolVersion(version: string): void {
+    console.log("🔧 Setting protocol version:", version);
+    this.protocolVersion = version;
+  }
+
+  /**
    * Gracefully closes the HTTP server and all active sessions
    * 
    * Stops the server, closes all active SSE connections, and cleans up resources.
@@ -338,6 +348,18 @@ export class StreamableHttpTransport implements Transport {
   async send(message: JSONRPCMessage, options?: any): Promise<void> {
     console.log("📤 Transport.send called with:", JSON.stringify(message, null, 2));
     
+    // Special logging for responses to tools/list
+    if (this.isJSONRPCResponse(message)) {
+      const pendingRequest = this.pendingRequests.get(message.id);
+      if (pendingRequest) {
+        console.log("📋 This is a response to request ID:", message.id);
+      }
+      
+      if ("error" in message && message.error) {
+        console.log("❌ ERROR RESPONSE:", message.error);
+      }
+    }
+    
     if (this.isJSONRPCResponse(message)) {
       console.log("📄 Detected as JSONRPCResponse - calling sendResponse");
       // Handle responses - send back via the appropriate session
@@ -359,21 +381,18 @@ export class StreamableHttpTransport implements Transport {
 
   private async handleRequest(request: Request): Promise<Response> {
     const url = new URL(request.url);
+    console.log(`🌐 ${request.method} request to ${url.pathname}`);
     
     if (url.pathname !== this.options.path) {
+      console.log(`❌ Path mismatch: ${url.pathname} !== ${this.options.path}`);
       return new Response("Not Found", { status: 404 });
     }
 
     // Validate origin for security
     const origin = request.headers.get("origin");
     if (origin && !this.isValidOrigin(origin)) {
+      console.log(`❌ Invalid origin: ${origin}`);
       return new Response("Forbidden", { status: 403 });
-    }
-
-    // Check MCP protocol version
-    const protocolVersion = request.headers.get("MCP-Protocol-Version") || "2025-03-26";
-    if (!this.isSupportedProtocolVersion(protocolVersion)) {
-      return new Response("Unsupported Protocol Version", { status: 400 });
     }
 
     if (request.method === "POST") {
@@ -382,6 +401,7 @@ export class StreamableHttpTransport implements Transport {
       return this.handleGetRequest(request);
     }
 
+    console.log(`❌ Method not allowed: ${request.method}`);
     return new Response("Method Not Allowed", { status: 405 });
   }
 
@@ -413,6 +433,11 @@ export class StreamableHttpTransport implements Transport {
       const message: JSONRPCMessage = JSON.parse(body);
       console.log("📦 Parsed message:", JSON.stringify(message, null, 2));
       
+      // Special logging for tools/list
+      if (this.isJSONRPCRequest(message) && "method" in message && message.method === "tools/list") {
+        console.log("🔧 TOOLS/LIST request detected");
+      }
+      
       // Extract session ID from headers for request correlation (MCP spec header name)
       const sessionId = request.headers.get("Mcp-Session-Id");
       console.log("🔐 Session ID:", sessionId);
@@ -429,6 +454,11 @@ export class StreamableHttpTransport implements Transport {
           
           this.send = async (responseMessage: JSONRPCMessage) => {
             console.log("📤 Send method called with message:", JSON.stringify(responseMessage, null, 2));
+            
+            // Check if this is an error response
+            if (this.isJSONRPCResponse(responseMessage) && "error" in responseMessage && responseMessage.error) {
+              console.log("❌ MCP Server returned error:", responseMessage.error);
+            }
             
             // Restore original send method
             this.send = originalSend;
@@ -450,6 +480,7 @@ export class StreamableHttpTransport implements Transport {
           
           // Now process the initialize request
           console.log("📨 Calling onmessage for initialize request");
+          console.log("🔍 Client protocol version:", message.params?.protocolVersion);
           if (this.onmessage) {
             this.onmessage(message);
           } else {
