@@ -9,25 +9,17 @@
 # Allow specific file types and important files
 !*.md
 !*.ts
-!*.js
-!*.json
-!*.yaml
-!*.yml
-!*.txt
-!*.png
-!*.jpg
-!*.jpeg
-!*.gif
-!*.svg
 !*.gitignore
 !*.gitattributes
 
-# Allow specific important files
+# Allow specific files
+!package.json
+!tsconfig.json
+!eslint.config.ts
+!mcp-sdk-picture.png
 !LICENSE
-!Dockerfile*
-!.dockerignore
-!.nvmrc
-!.node-version
+!bun.lock
+!README.md
 
 # Still ignore certain directories and files even if they match above patterns
 node_modules/
@@ -46,9 +38,3 @@ Thumbs.db
 *.swo
 .vscode/
 .idea/
-bun.lockb
-
-# Allow package-lock.json and yarn.lock if they exist
-!package-lock.json
-!yarn.lock
-!pnpm-lock.yaml
