@@ -7,7 +7,6 @@
 !*/
 
 # Allow specific file types and important files
-!*.md
 !*.ts
 !*.gitignore
 !*.gitattributes
