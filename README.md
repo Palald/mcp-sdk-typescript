@@ -211,4 +211,4 @@ MIT License - see [LICENSE](LICENSE) file for details.
 
 ---
 
-Built with ❤️ using [Bun](https://bun.sh) and [TypeScript](https://typescriptlang.org)
+Built with ❤️ by **The Ihor** using [Bun](https://bun.sh), [TypeScript](https://typescriptlang.org), and [Claude](https://claude.ai)
