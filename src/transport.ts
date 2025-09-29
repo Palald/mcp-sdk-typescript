@@ -78,14 +78,49 @@ interface PendingRequest {
  * await transport.start();
  * ```
  */
+/**
+ * Runtime detection utility
+ */
+class RuntimeDetection {
+  /**
+   * Checks if the current runtime is Bun
+   * 
+   * @returns True if running in Bun environment
+   */
+  static isBun(): boolean {
+    return typeof Bun !== 'undefined' && typeof Bun.serve === 'function';
+  }
+
+  /**
+   * Checks if the current runtime is Node.js
+   * 
+   * @returns True if running in Node.js environment
+   */
+  static isNode(): boolean {
+    return typeof process !== 'undefined' && process.versions && Boolean(process.versions.node);
+  }
+
+  /**
+   * Gets the current runtime name
+   * 
+   * @returns Runtime identifier string
+   */
+  static getRuntime(): 'bun' | 'node' | 'unknown' {
+    if (this.isBun()) return 'bun';
+    if (this.isNode()) return 'node';
+    return 'unknown';
+  }
+}
+
 export class StreamableHttpTransport implements Transport {
-  private server?: Bun.Server;
+  private server?: any; // Can be Bun.Server or Node.js server
   private sessions = new Map<string, Session>();
   private pendingRequests = new Map<string | number, PendingRequest>();
   private messageHandler?: (message: JSONRPCMessage) => void;
   private closeHandler?: (error?: Error) => void;
   private errorHandler?: (error: Error) => void;
   private options: StreamableHttpTransportOptions;
+  private runtime: 'bun' | 'node' | 'unknown';
 
   /**
    * Type guard to check if a message is a JSON-RPC request
@@ -120,31 +155,112 @@ export class StreamableHttpTransport implements Transport {
   /**
    * Creates a new StreamableHttpTransport instance
    * 
+   * Automatically detects the runtime environment (Bun vs Node.js) and
+   * optimizes server creation accordingly.
+   * 
    * @param options - Transport configuration including host, port, and path
    */
   constructor(options: StreamableHttpTransportOptions) {
     this.options = options;
+    this.runtime = RuntimeDetection.getRuntime();
+    
+    if (this.runtime === 'unknown') {
+      throw new Error('Unsupported runtime environment. This SDK requires Bun or Node.js.');
+    }
   }
 
   /**
    * Starts the HTTP server and begins listening for connections
    * 
-   * Initializes the Bun server with the configured options and sets up
-   * request handling for MCP protocol communication.
+   * Automatically uses the optimal server implementation based on runtime:
+   * - Bun: Uses Bun.serve for maximum performance
+   * - Node.js: Uses Node.js HTTP server with similar API
    * 
    * @returns Promise that resolves when the server is successfully started
    * @throws {Error} When server fails to bind to the specified host/port
    */
   async start(): Promise<void> {
     try {
-      this.server = Bun.serve({
-        hostname: this.options.host,
-        port: this.options.port,
-        fetch: this.handleRequest.bind(this),
-      });
+      if (this.runtime === 'bun') {
+        this.server = Bun.serve({
+          hostname: this.options.host,
+          port: this.options.port,
+          fetch: this.handleRequest.bind(this),
+        });
+      } else if (this.runtime === 'node') {
+        // Lazy import Node.js modules to avoid issues in Bun
+        const { createServer } = await import('http');
+        
+        this.server = createServer(async (req, res) => {
+          try {
+            // Convert Node.js request to Fetch API Request
+            const url = `http://${req.headers.host || this.options.host}${req.url}`;
+            const headers = new Headers();
+            
+            for (const [key, value] of Object.entries(req.headers)) {
+              if (Array.isArray(value)) {
+                value.forEach(v => headers.append(key, v));
+              } else if (value) {
+                headers.set(key, value);
+              }
+            }
+            
+            let body = '';
+            if (req.method !== 'GET' && req.method !== 'HEAD') {
+              const chunks: Buffer[] = [];
+              for await (const chunk of req) {
+                chunks.push(chunk);
+              }
+              body = Buffer.concat(chunks).toString();
+            }
+            
+            const request = new Request(url, {
+              method: req.method,
+              headers,
+              body: body || undefined,
+            });
+            
+            const response = await this.handleRequest(request);
+            
+            // Convert Fetch Response back to Node.js response
+            res.statusCode = response.status;
+            response.headers.forEach((value, key) => {
+              res.setHeader(key, value);
+            });
+            
+            if (response.body) {
+              const reader = response.body.getReader();
+              try {
+                while (true) {
+                  const { done, value } = await reader.read();
+                  if (done) break;
+                  res.write(value);
+                }
+              } finally {
+                reader.releaseLock();
+              }
+            }
+            res.end();
+          } catch (error) {
+            res.statusCode = 500;
+            res.end('Internal Server Error');
+            const serverError = error instanceof Error ? error : new Error(String(error));
+            this.handleError(serverError, 'Node.js request handling failed');
+          }
+        });
+        
+        await new Promise<void>((resolve, reject) => {
+          this.server.listen(this.options.port, this.options.host, (error?: Error) => {
+            if (error) reject(error);
+            else resolve();
+          });
+        });
+      } else {
+        throw new Error(`Unsupported runtime: ${this.runtime}`);
+      }
     } catch (error) {
       const startupError = error instanceof Error ? error : new Error(String(error));
-      this.handleError(startupError, 'Server startup failed');
+      this.handleError(startupError, `${this.runtime} server startup failed`);
       throw startupError;
     }
   }
@@ -160,7 +276,16 @@ export class StreamableHttpTransport implements Transport {
   async close(): Promise<void> {
     try {
       if (this.server) {
-        this.server.stop();
+        if (this.runtime === 'bun') {
+          this.server.stop();
+        } else if (this.runtime === 'node') {
+          await new Promise<void>((resolve, reject) => {
+            this.server.close((error?: Error) => {
+              if (error) reject(error);
+              else resolve();
+            });
+          });
+        }
         this.server = undefined;
       }
       

@@ -1,10 +1,11 @@
-# MCP SDK for Bun
+# MCP SDK for TypeScript
 
-Production-ready Model Context Protocol (MCP) SDK built for Bun runtime with advanced streamable HTTP transport, comprehensive error handling, and enterprise-grade session management.
+Production-ready Model Context Protocol (MCP) SDK for TypeScript with automatic runtime optimization (Bun/Node.js), advanced streamable HTTP transport, comprehensive error handling, and enterprise-grade session management.
 
 ## ✨ Features
 
-- 🚀 **High Performance**: Built on Bun for optimal speed and efficiency
+- 🚀 **Runtime Optimized**: Automatically detects and optimizes for Bun or Node.js
+- ⚡ **High Performance**: Uses Bun.serve when available, graceful Node.js fallback
 - 🔄 **Real-Time Communication**: Streamable HTTP transport with Server-Sent Events (SSE)
 - 🛡️ **Type Safety**: Full TypeScript support with Zod schema validation
 - 📡 **Session Management**: Advanced request-response correlation and session tracking
@@ -12,17 +13,25 @@ Production-ready Model Context Protocol (MCP) SDK built for Bun runtime with adv
 - 🛠️ **Production Ready**: Comprehensive error handling and memory management
 - 📚 **Well Documented**: Enterprise-grade JSDoc documentation
 - 🎯 **MCP Compliant**: Full support for MCP 2025-03-26 specification
+- 🔌 **Universal Compatibility**: Works seamlessly in both Bun and Node.js environments
 
 ## 🚀 Installation
 
 ```bash
-bun add mcp-sdk-bun
+# Using Bun (recommended for performance)
+bun add @the-ihor/mcp-sdk-typescript
+
+# Using npm/Node.js
+npm install @the-ihor/mcp-sdk-typescript
+
+# Using yarn
+yarn add @the-ihor/mcp-sdk-typescript
 ```
 
 ## 📖 Quick Start
 
 ```typescript
-import { MCPApp, TextResponse, ProgressResponse, LogResponse, z } from "mcp-sdk-bun";
+import { MCPApp, TextResponse, ProgressResponse, LogResponse, z } from "@the-ihor/mcp-sdk-typescript";
 
 const app = new MCPApp({
   name: "my-mcp-server",
@@ -92,6 +101,9 @@ Main application class providing:
 
 #### **StreamableHttpTransport**
 Advanced HTTP transport featuring:
+- **Runtime Detection**: Automatically uses optimal server implementation
+- **Bun Optimization**: Uses Bun.serve for maximum performance when available
+- **Node.js Compatibility**: Seamless fallback to Node.js HTTP server
 - **Session Correlation**: Request-response mapping for proper delivery
 - **Real-Time Streaming**: Server-Sent Events for immediate responses
 - **Error Recovery**: Comprehensive fallback mechanisms
@@ -156,6 +168,7 @@ The transport automatically handles session correlation:
 
 ## 🛠️ Development
 
+### Using Bun (Recommended)
 ```bash
 # Install dependencies
 bun install
@@ -174,13 +187,40 @@ bun run lint:fix
 bun test
 ```
 
+### Using Node.js
+```bash
+# Install dependencies
+npm install
+
+# Build the library (requires Bun for build process)
+npm run build
+
+# Type checking
+npm run typecheck
+
+# Linting
+npm run lint
+
+# Run tests
+npm test
+```
+
+### Runtime Detection
+The SDK automatically detects your runtime:
+```typescript
+// Will use Bun.serve if running in Bun
+// Will use Node.js HTTP server if running in Node.js
+const app = new MCPApp({ name: 'my-app', version: '1.0.0' });
+await app.start(); // Optimized for your runtime!
+```
+
 ## 📁 Project Structure
 
 ```
-mcp-sdk-bun/
+mcp-sdk-typescript/
 ├── src/
 │   ├── app.ts          # Main MCPApp class
-│   ├── transport.ts    # HTTP transport with session management
+│   ├── transport.ts    # HTTP transport with runtime detection
 │   ├── responses.ts    # Response type definitions
 │   ├── schemas.ts      # Schema utilities and validation
 │   └── index.ts        # Public API exports
@@ -205,9 +245,11 @@ MIT License - see [LICENSE](LICENSE) file for details.
 
 ## 🔗 Links
 
-- **GitHub**: [mcp-sdk-bun](https://github.com/the-ihor/mcp-sdk-bun)
-- **Issues**: [Report bugs](https://github.com/the-ihor/mcp-sdk-bun/issues)
+- **GitHub**: [mcp-sdk-typescript](https://github.com/the-ihor/mcp-sdk-typescript)
+- **Issues**: [Report bugs](https://github.com/the-ihor/mcp-sdk-typescript/issues)
 - **MCP Specification**: [Model Context Protocol](https://modelcontextprotocol.io)
+- **Bun Runtime**: [Bun.sh](https://bun.sh)
+- **Node.js Runtime**: [Node.js](https://nodejs.org)
 
 ---
 

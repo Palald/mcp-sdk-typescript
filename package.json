@@ -1,7 +1,7 @@
 {
-  "name": "mcp-sdk-bun",
+  "name": "@the-ihor/mcp-sdk-typescript",
   "version": "1.0.0",
-  "description": "Production-ready MCP SDK for Bun with streamable HTTP transport, type-safe tool creation, and real-time session management",
+  "description": "Production-ready MCP SDK for TypeScript with automatic Bun optimization, streamable HTTP transport, and real-time session management",
   "main": "dist/index.js",
   "type": "module",
   "scripts": {
@@ -17,7 +17,9 @@
     "mcp", 
     "model-context-protocol", 
     "sdk", 
+    "typescript", 
     "bun", 
+    "nodejs", 
     "streamable", 
     "http", 
     "transport", 
@@ -25,21 +27,21 @@
     "websocket", 
     "sse", 
     "server-sent-events", 
-    "typescript", 
     "type-safe", 
     "async-generator", 
     "json-rpc", 
-    "session-management"
+    "session-management",
+    "runtime-detection"
   ],
   "author": "The Ihor <https://github.com/the-ihor>",
   "license": "MIT",
-  "homepage": "https://github.com/the-ihor/mcp-sdk-bun#readme",
+  "homepage": "https://github.com/the-ihor/mcp-sdk-typescript#readme",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/the-ihor/mcp-sdk-bun.git"
+    "url": "git+https://github.com/the-ihor/mcp-sdk-typescript.git"
   },
   "bugs": {
-    "url": "https://github.com/the-ihor/mcp-sdk-bun/issues"
+    "url": "https://github.com/the-ihor/mcp-sdk-typescript/issues"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "latest",
@@ -48,6 +50,7 @@
   "devDependencies": {
     "@eslint/js": "^9.36.0",
     "@types/bun": "latest",
+    "@types/node": "^20.0.0",
     "eslint": "^9.36.0",
     "globals": "^16.4.0",
     "jiti": "^2.6.0",
@@ -56,6 +59,7 @@
     "@the-ihor/adi-eslint-config-typescript": "^1.0.0"
   },
   "engines": {
+    "node": ">=18.0.0",
     "bun": ">=1.0.0"
   }
 }
