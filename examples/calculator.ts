@@ -19,8 +19,8 @@ const app = new MCPApp({
   transport: {
     host: "localhost",
     port: 3000,
-    path: "/calculator"
-  }
+    path: "/calculator",
+  },
 });
 
 // Tool 1: Basic arithmetic operations
@@ -30,7 +30,7 @@ app.createTool({
   schema: z.object({
     operation: z.enum(["add", "subtract", "multiply", "divide"]),
     a: z.number().describe("First number"),
-    b: z.number().describe("Second number")
+    b: z.number().describe("Second number"),
   }),
   handler: async function* ({ operation, a, b }) {
     yield new TextResponse(`🔢 Calculating ${a} ${operation} ${b}...`);
@@ -62,7 +62,7 @@ app.createTool({
     }
     
     yield new TextResponse(`✅ ${a} ${symbol} ${b} = ${result}`);
-  }
+  },
 });
 
 // Tool 2: Power calculation
@@ -71,14 +71,14 @@ app.createTool({
   description: "Calculate a number raised to a power",
   schema: z.object({
     base: z.number().describe("The base number"),
-    exponent: z.number().describe("The exponent")
+    exponent: z.number().describe("The exponent"),
   }),
   handler: async function* ({ base, exponent }) {
     yield new TextResponse(`🔢 Calculating ${base} raised to the power of ${exponent}...`);
     
     const result = Math.pow(base, exponent);
     yield new TextResponse(`✅ ${base}^${exponent} = ${result}`);
-  }
+  },
 });
 
 // Tool 3: Square root
@@ -86,14 +86,14 @@ app.createTool({
   name: "sqrt",
   description: "Calculate the square root of a number",
   schema: z.object({
-    number: z.number().min(0).describe("The number to find square root of (must be non-negative)")
+    number: z.number().min(0).describe("The number to find square root of (must be non-negative)"),
   }),
   handler: async function* ({ number }) {
     yield new TextResponse(`🔢 Calculating square root of ${number}...`);
     
     const result = Math.sqrt(number);
     yield new TextResponse(`✅ √${number} = ${result}`);
-  }
+  },
 });
 
 // Tool 4: Factorial
@@ -101,7 +101,7 @@ app.createTool({
   name: "factorial",
   description: "Calculate the factorial of a non-negative integer",
   schema: z.object({
-    n: z.number().int().min(0).max(20).describe("Integer from 0 to 20")
+    n: z.number().int().min(0).max(20).describe("Integer from 0 to 20"),
   }),
   handler: async function* ({ n }) {
     yield new TextResponse(`🔢 Calculating factorial of ${n}...`);
@@ -112,7 +112,7 @@ app.createTool({
     }
     
     yield new TextResponse(`✅ ${n}! = ${result}`);
-  }
+  },
 });
 
 // Start the server
