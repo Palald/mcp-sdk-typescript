@@ -1,7 +1,7 @@
 {
   "name": "mcp-sdk-bun",
   "version": "1.0.0",
-  "description": "MCP Streamable HTTP transport library using Bun",
+  "description": "Production-ready MCP SDK for Bun with streamable HTTP transport, type-safe tool creation, and real-time session management",
   "main": "dist/index.js",
   "type": "module",
   "scripts": {
@@ -13,9 +13,34 @@
     "lint:fix": "eslint . --fix",
     "lint:check": "eslint . --max-warnings 0"
   },
-  "keywords": ["mcp", "model-context-protocol", "streamable", "http", "bun", "library"],
-  "author": "",
+  "keywords": [
+    "mcp", 
+    "model-context-protocol", 
+    "sdk", 
+    "bun", 
+    "streamable", 
+    "http", 
+    "transport", 
+    "real-time", 
+    "websocket", 
+    "sse", 
+    "server-sent-events", 
+    "typescript", 
+    "type-safe", 
+    "async-generator", 
+    "json-rpc", 
+    "session-management"
+  ],
+  "author": "The Ihor <https://github.com/the-ihor>",
   "license": "MIT",
+  "homepage": "https://github.com/the-ihor/mcp-sdk-bun#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/the-ihor/mcp-sdk-bun.git"
+  },
+  "bugs": {
+    "url": "https://github.com/the-ihor/mcp-sdk-bun/issues"
+  },
   "dependencies": {
     "@modelcontextprotocol/sdk": "latest",
     "zod": "^4.1.11"
