@@ -11,6 +11,13 @@
 export { MCPApp } from "./app.js";
 export { StreamableHttpTransport } from "./transport.js";
 export { zodToJsonSchema, createToolHandler } from "./schemas.js";
+
+/**
+ * Transport configuration types
+ */
+export type { 
+  StreamableHttpTransportOptions,
+} from "./transport.js";
 export {
   MCPResponse,
   TextResponse,

@@ -6,12 +6,13 @@ import {
   JSONRPCNotification,
 } from "@modelcontextprotocol/sdk/types.js";
 
+
 /**
  * Configuration options for StreamableHttpTransport
  * 
  * Defines the network binding and endpoint configuration for the HTTP transport layer.
  */
-interface StreamableHttpTransportOptions {
+export interface StreamableHttpTransportOptions {
   /** Hostname or IP address to bind the server to */
   host: string;
   /** Port number for the HTTP server */
@@ -116,11 +117,14 @@ export class StreamableHttpTransport implements Transport {
   private server?: any; // Can be Bun.Server or Node.js server
   private sessions = new Map<string, Session>();
   private pendingRequests = new Map<string | number, PendingRequest>();
-  private messageHandler?: (message: JSONRPCMessage) => void;
-  private closeHandler?: (error?: Error) => void;
-  private errorHandler?: (error: Error) => void;
   private options: StreamableHttpTransportOptions;
   private runtime: 'bun' | 'node' | 'unknown';
+
+  // MCP SDK Transport interface properties  
+  onmessage?: (message: JSONRPCMessage, extra?: any) => void;
+  onclose?: () => void;
+  onerror?: (error: Error) => void;
+  sessionId?: string;
 
   /**
    * Type guard to check if a message is a JSON-RPC request
@@ -180,12 +184,14 @@ export class StreamableHttpTransport implements Transport {
    * @throws {Error} When server fails to bind to the specified host/port
    */
   async start(): Promise<void> {
+    console.log("🚀 Transport.start() called");
     try {
       if (this.runtime === 'bun') {
         this.server = Bun.serve({
           hostname: this.options.host,
           port: this.options.port,
           fetch: this.handleRequest.bind(this),
+          idleTimeout: 255, // Maximum allowed by Bun
         });
       } else if (this.runtime === 'node') {
         // Lazy import Node.js modules to avoid issues in Bun
@@ -274,6 +280,7 @@ export class StreamableHttpTransport implements Transport {
    * @returns Promise that resolves when shutdown is complete
    */
   async close(): Promise<void> {
+    console.log("🛑 Transport.close() called");
     try {
       if (this.server) {
         if (this.runtime === 'bun') {
@@ -304,47 +311,18 @@ export class StreamableHttpTransport implements Transport {
       // Clear pending requests on shutdown
       this.pendingRequests.clear();
 
-      if (this.closeHandler) {
-        this.closeHandler();
+      if (this.onclose) {
+        this.onclose();
       }
     } catch (error) {
       const shutdownError = error instanceof Error ? error : new Error(String(error));
       this.handleError(shutdownError, 'Transport shutdown failed');
-      if (this.closeHandler) {
-        this.closeHandler(shutdownError);
+      if (this.onclose) {
+        this.onclose();
       }
     }
   }
 
-  /**
-   * Registers a handler for incoming MCP messages
-   * 
-   * @param handler - Function to call when messages are received from clients
-   */
-  onMessage(handler: (message: JSONRPCMessage) => void): void {
-    this.messageHandler = handler;
-  }
-
-  /**
-   * Registers a handler for transport closure events
-   * 
-   * @param handler - Function to call when the transport is closed, optionally with an error
-   */
-  onClose(handler: (error?: Error) => void): void {
-    this.closeHandler = handler;
-  }
-
-  /**
-   * Registers an error handler for transport-level errors
-   * 
-   * Handles errors such as server startup failures, message parsing errors,
-   * session management issues, and other transport-level problems.
-   * 
-   * @param handler - Function to call when transport errors occur
-   */
-  onError(handler: (error: Error) => void): void {
-    this.errorHandler = handler;
-  }
 
   /**
    * Sends a message to connected clients with proper type discrimination
@@ -357,17 +335,23 @@ export class StreamableHttpTransport implements Transport {
    * @param message - JSON-RPC message to send
    * @returns Promise that resolves when message is sent
    */
-  async send(message: JSONRPCMessage): Promise<void> {
+  async send(message: JSONRPCMessage, options?: any): Promise<void> {
+    console.log("📤 Transport.send called with:", JSON.stringify(message, null, 2));
+    
     if (this.isJSONRPCResponse(message)) {
+      console.log("📄 Detected as JSONRPCResponse - calling sendResponse");
       // Handle responses - send back via the appropriate session
       await this.sendResponse(message);
     } else if (this.isJSONRPCRequest(message)) {
+      console.log("📋 Detected as JSONRPCRequest - broadcasting");
       // Handle server-initiated requests - broadcast to all sessions
       await this.broadcastMessage(message);
     } else if (this.isJSONRPCNotification(message)) {
+      console.log("📢 Detected as JSONRPCNotification - broadcasting");
       // Handle notifications - broadcast to all sessions
       await this.broadcastMessage(message);
     } else {
+      console.log("❓ Unknown message type - broadcasting");
       // Fallback for any unrecognized message types
       await this.broadcastMessage(message);
     }
@@ -408,22 +392,87 @@ export class StreamableHttpTransport implements Transport {
    * @returns HTTP response based on message type
    */
   private async handlePostRequest(request: Request): Promise<Response> {
+    console.log("🔵 POST request received");
+    
     try {
-      const body = await request.text();
-      const message: JSONRPCMessage = JSON.parse(body);
+      // Validate Accept header as per MCP specification
+      const acceptHeader = request.headers.get("Accept");
+      console.log("📋 Accept header:", acceptHeader);
       
-      // Extract session ID from headers for request correlation
-      const sessionId = request.headers.get("X-Session-ID");
+      if (!acceptHeader || (!acceptHeader.includes("application/json") && !acceptHeader.includes("text/event-stream"))) {
+        console.log("❌ Invalid Accept header");
+        return new Response("Bad Request: Accept header must include application/json or text/event-stream", { 
+          status: 400,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+
+      const body = await request.text();
+      console.log("📨 Request body:", body);
+      
+      const message: JSONRPCMessage = JSON.parse(body);
+      console.log("📦 Parsed message:", JSON.stringify(message, null, 2));
+      
+      // Extract session ID from headers for request correlation (MCP spec header name)
+      const sessionId = request.headers.get("Mcp-Session-Id");
+      console.log("🔐 Session ID:", sessionId);
+
+      // For initialize requests, we need to wait for and return the response immediately
+      if (this.isJSONRPCRequest(message) && "method" in message && message.method === "initialize") {
+        console.log("🚀 INITIALIZE request detected - setting up special handling");
+        
+        // Handle initialize specially - must return JSON response immediately
+        return new Promise((resolve) => {
+          // Set up a one-time response handler
+          const originalSend = this.send.bind(this);
+          console.log("🔄 Hijacking send method for initialize response");
+          
+          this.send = async (responseMessage: JSONRPCMessage) => {
+            console.log("📤 Send method called with message:", JSON.stringify(responseMessage, null, 2));
+            
+            // Restore original send method
+            this.send = originalSend;
+            console.log("🔄 Restored original send method");
+            
+            if (this.isJSONRPCResponse(responseMessage) && responseMessage.id === message.id) {
+              console.log("✅ Found matching initialize response - returning immediately");
+              // This is the initialize response - return it immediately
+              resolve(new Response(JSON.stringify(responseMessage), {
+                status: 200,
+                headers: { "Content-Type": "application/json" },
+              }));
+            } else {
+              console.log("🔀 Different message - forwarding to original handler");
+              // Forward other messages to original handler
+              await originalSend(responseMessage);
+            }
+          };
+          
+          // Now process the initialize request
+          console.log("📨 Calling onmessage for initialize request");
+          if (this.onmessage) {
+            this.onmessage(message);
+          } else {
+            console.log("❌ No onmessage handler registered!");
+          }
+        });
+      }
 
       // Handle the message through the registered handler
-      if (this.messageHandler) {
-        this.messageHandler(message);
+      console.log("📨 Processing message through onmessage");
+      if (this.onmessage) {
+        this.onmessage(message);
+      } else {
+        console.log("❌ No onmessage handler registered for regular message!");
       }
 
       // Return appropriate HTTP status based on message type
       if (this.isJSONRPCNotification(message)) {
         // Notifications don't expect a response
-        return new Response("", { status: 202 });
+        return new Response("", { 
+          status: 202,
+          headers: { "Content-Type": "application/json" },
+        });
       } else if (this.isJSONRPCRequest(message)) {
         // Track request for response correlation if we have a session
         if (sessionId && "id" in message && message.id !== null) {
@@ -433,16 +482,50 @@ export class StreamableHttpTransport implements Transport {
             timestamp: Date.now(),
           });
         }
-        // Requests will get responses through the send method
-        return new Response("", { status: 202 });
+        
+        // Check if client accepts streaming response
+        if (acceptHeader.includes("text/event-stream")) {
+          // Return streaming response for requests
+          const stream = new ReadableStream<string>({
+            start: (controller) => {
+              // Store controller for sending response later
+              if (sessionId) {
+                const session = this.sessions.get(sessionId);
+                if (session) {
+                  session.controller = controller;
+                }
+              }
+            },
+          });
+          
+          return new Response(stream.pipeThrough(new TextEncoderStream()), {
+            headers: {
+              "Content-Type": "text/event-stream",
+              "Cache-Control": "no-cache",
+              "Connection": "keep-alive",
+            },
+          });
+        } else {
+          // Return 202 for JSON responses
+          return new Response("", { 
+            status: 202,
+            headers: { "Content-Type": "application/json" },
+          });
+        }
       } else {
         // Invalid or unrecognized message format
-        return new Response("Invalid JSON-RPC message", { status: 400 });
+        return new Response("Invalid JSON-RPC message", { 
+          status: 400,
+          headers: { "Content-Type": "application/json" },
+        });
       }
     } catch (error) {
       const parseError = error instanceof Error ? error : new Error(String(error));
       this.handleError(parseError, 'Failed to parse JSON-RPC message');
-      return new Response("Bad Request", { status: 400 });
+      return new Response("Bad Request", { 
+        status: 400,
+        headers: { "Content-Type": "application/json" },
+      });
     }
   }
 
@@ -452,11 +535,16 @@ export class StreamableHttpTransport implements Transport {
    * Creates a persistent connection for real-time message delivery to clients.
    * Each connection gets a unique session ID for tracking.
    * 
-   * @param _request - The HTTP GET request (unused but required by interface)
+   * @param request - The HTTP GET request
    * @returns Response with SSE stream
    */
-  private async handleGetRequest(_request: Request): Promise<Response> {
-    const sessionId = this.generateSessionId();
+  private async handleGetRequest(request: Request): Promise<Response> {
+    console.log("🟢 GET request received for SSE stream");
+    
+    // Check for existing session ID in headers
+    const existingSessionId = request.headers.get("Mcp-Session-Id");
+    const sessionId = existingSessionId || this.generateSessionId();
+    console.log("🔐 SSE Session ID:", sessionId, existingSessionId ? "(existing)" : "(new)");
     
     const stream = new ReadableStream<string>({
       start: (controller) => {
@@ -477,8 +565,8 @@ export class StreamableHttpTransport implements Transport {
         "Cache-Control": "no-cache",
         "Connection": "keep-alive",
         "Access-Control-Allow-Origin": "*",
-        "Access-Control-Allow-Headers": "Content-Type, MCP-Protocol-Version",
-        "X-Session-ID": sessionId,
+        "Access-Control-Allow-Headers": "Content-Type, Mcp-Session-Id",
+        "Mcp-Session-Id": sessionId,
       },
     });
   }
@@ -595,12 +683,12 @@ export class StreamableHttpTransport implements Transport {
    * @param context - Additional context about where the error occurred
    */
   private handleError(error: Error, context: string): void {
-    if (this.errorHandler) {
+    if (this.onerror) {
       // Enhance error with context information
       const enhancedError = new Error(`${context}: ${error.message}`);
       enhancedError.stack = error.stack;
       enhancedError.cause = error;
-      this.errorHandler(enhancedError);
+      this.onerror(enhancedError);
     }
   }
 

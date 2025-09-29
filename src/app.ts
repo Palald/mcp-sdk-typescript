@@ -277,8 +277,12 @@ export class MCPApp {
    * ```
    */
   async start(): Promise<void> {
+    console.log("🔧 Creating transport...");
     const transport = new StreamableHttpTransport(this.transportOptions);
+    
+    console.log("🔗 Connecting MCP Server to transport...");
     await this.server.connect(transport);
+    console.log("✅ MCP Server connected to transport");
     
     console.log(`🚀 MCP Server '${this.options.name}' started on http://${this.transportOptions.host}:${this.transportOptions.port}${this.transportOptions.path}`);
     console.log(`📋 Registered ${this.tools.size} tools: ${Array.from(this.tools.keys()).join(', ')}`);
