@@ -345,7 +345,7 @@ export class StreamableHttpTransport implements Transport {
    * @param message - JSON-RPC message to send
    * @returns Promise that resolves when message is sent
    */
-  async send(message: JSONRPCMessage, options?: any): Promise<void> {
+  async send(message: JSONRPCMessage, _options?: any): Promise<void> {
     console.log("📤 Transport.send called with:", JSON.stringify(message, null, 2));
     
     // Special logging for responses to tools/list
