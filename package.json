@@ -1,6 +1,6 @@
 {
   "name": "@the-ihor/mcp-sdk-typescript",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "Production-ready MCP SDK for TypeScript with automatic Bun optimization, streamable HTTP transport, and real-time session management",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
