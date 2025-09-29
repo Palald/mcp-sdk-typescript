@@ -1,5 +1,7 @@
 # MCP SDK for TypeScript
 
+![MCP SDK for TypeScript](./mcp-sdk-picture.png)
+
 Production-ready Model Context Protocol (MCP) SDK for TypeScript with automatic runtime optimization (Bun/Node.js), advanced streamable HTTP transport, comprehensive error handling, and enterprise-grade session management.
 
 ## ✨ Features
