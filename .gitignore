@@ -14,6 +14,11 @@
 !*.yaml
 !*.yml
 !*.txt
+!*.png
+!*.jpg
+!*.jpeg
+!*.gif
+!*.svg
 !*.gitignore
 !*.gitattributes
 
